@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style type="text/css">
+    canvas {
+      width: 100%;
+      height: 100%;
+    }
+    body {
+      background-color: #3D3D3D;
+    }
+    h1 {
+      font-family: Futura, Trebuchet MS, Arial, sans-serif;
+      font-size: 40px;
+      font-weight: 700;
+      color: white;
+      line-height: 26.4px;
+      text-align: center;
+    }
+    .circle {
+      position: absolute;
+      top: 30%;
+      height: 100px;
+      width: 100px;
+      background-color: #65B1FC;
+      border-radius: 50%;
+    }
+    .canvasbox {
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        border-radius: 3px;
+        margin-right: 10px;
+        width: 215px;
+        height: 162px;
+        border-bottom: 3px solid #0063FF;
+    }
+    .trackbutton_look{
+      position: absolute;
+      background-color: #393939;
+      color: #ffffff;
+      margin-top: 10px;
+      z-index: 100;
+    }
+    p.target {
+      padding-top: 25px;
+      border: 1px solid black;
+      width: 100%;
+      height: 300px;
+      text-align: center;
+      line-height: 100px;
+    }
+    .mouse_pointer {
+      position: absolute;
+      z-index: 90;
+    }
+    .interactive_area {
+    }
+    </style>
+</head>
+<body>
+  <h1>Neck L&R animations</h1>
+  <div><video class="canvasbox" autoplay="autoplay" id="myvideo"></video>
+  <canvas id="myCanvas" class="canvasbox"></canvas>
+  </div>
+
+  <div><button  id="trackbutton" class="trackbutton_look" type="button" disabled>
+          Begin video ...
+        </button>
+  </div>
+  <div class="interactive_area">
+  <img id="cross" class="mouse_pointer" src="img/close.svg" height="20" width="20"/>
+    <p class='target'>
+      <div class="circle" id="circle1"> </div>
+      <div class="circle" id="circle2"> </div>
+      <div class="circle" id="circle3"> </div>
+      <div class="circle" id="circle4"> </div>
+      <div class="circle" id="circle5"> </div>
+    </p>
+  </div>
+  <script src="anime-master/lib/anime.min.js"></script>
+  <script src="handtrack.js-master/demo/handtrack.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script type="text/javascript">
+
+  $(document).mousemove(function(e){
+    $(".mouse_pointer").css({left:(e.pageX-10), top:(e.pageY-10)});
+  });
+
+  const video = document.getElementById("myvideo");
+  const canvas = document.getElementById("myCanvas");
+  const context = canvas.getContext("2d");
+
+  let trackButton = document.getElementById("trackbutton");
+
+  let imgindex = 1
+  let isVideo = false;
+  let model = null;
+  let videoInterval = 100
+  let windowXRange, worldXRange = 0
+
+  // TestBed Details
+  windowHeight = $(document).height()
+  windowWidth = document.body.clientWidth
+
+  console.log(windowHeight, windowWidth);
+  windowXRange = [0, windowWidth]
+  worldXRange = [-(SPACE_WIDTH / 2), SPACE_WIDTH / 2]
+  var scale_factor = 10
+  var SPACE_WIDTH = windowWidth / scale_factor;
+  var SPACE_HEIGHT = windowHeight / scale_factor;
+
+  // video.width = 500
+  // video.height = 400
+
+  const modelParams = {
+      flipHorizontal: true, // flip e.g for video
+      imageScaleFactor: 0.3,
+      maxNumBoxes: 1, // maximum number of boxes to detect
+      iouThreshold: 0.5, // ioU threshold for non-max suppression
+      scoreThreshold: 0.6 // confidence threshold for predictions.
+  }
+
+  function startVideo() {
+      handTrack.startVideo(video).then(function (status) {
+          console.log("video started", status);
+          if (status) {
+              isVideo = true
+              runDetection()
+          }
+      });
+  }
+  function runDetection() {
+      model.detect(video).then(predictions => {
+          // console.log("Predictions: ", predictions);
+          // get the middle x value of the bounding box and map to paddle location
+          model.renderPredictions(predictions, canvas, context, video);
+          if (predictions[0]) {
+              let midval = predictions[0].bbox[0] + (predictions[0].bbox[2] / 2)
+              gamex = document.body.clientWidth * (midval / video.width)
+              let midval_y = predictions[0].bbox[1] + (predictions[0].bbox[3] / 2)
+              gamey = document.body.clientHeight * (midval_y / video.height)
+              //updatePaddleControl(gamex)
+              setInterval(updateMousePos(gamex,gamey),1000);
+          }
+          if (isVideo) {
+              setTimeout(() => {
+                  runDetection(video)
+              }, videoInterval);
+          }
+      });
+  }
+  function toggleVideo() {
+      if (!isVideo) {
+          startVideo();
+      }
+  }
+  trackButton.addEventListener("click", function () {
+      toggleVideo();
+      $(".mouse_pointer").css({left:("50%"), top:("20%")});
+  });
+
+  // Load the model.
+  handTrack.load(modelParams).then(lmodel => {
+      console.log("loading model...")
+      // detect objects in the image.
+      model = lmodel
+      trackButton.disabled = false
+  });
+
+
+  var target = $('p.target');
+  function updateMousePos(x,y) {
+    var e = $.Event('mousemove');
+    e.pageX = parseInt(x);
+    e.pageY = parseInt(y);
+    e.isTrigger = true;
+    console.log(e);
+    target.trigger(e);
+  }
+  /*
+  target.mousemove(function(e) {
+      $('.x-value').text(e.pageX);
+      $('.y-value').text(e.pageY);
+  });*/
+
+  var lm = document.getElementById("circle1");
+  lm.style.left = "5%"
+  var lcm = document.getElementById("circle2");
+  lcm.style.left = "25%"
+  var cm = document.getElementById("circle3");
+  cm.style.left = "45%"
+  var rcm = document.getElementById("circle4");
+  rcm.style.left = "65%"
+  var rm = document.getElementById("circle5");
+  rm.style.left = "85%"
+
+  //create a hotbox around the circle
+  function hotbox(e, el, colour) {
+    var pos = el.getBoundingClientRect();
+    if (e.pageX>=pos.left && e.pageX<=pos.right) {
+      if (e.pageY>=pos.top && e.pageY<=pos.bottom) {
+        animation(el, colour);
+        pointer_animation();
+      }
+    }
+  }
+
+  function pointer_animation() {
+    anime({
+      targets: '.mouse_pointer',
+      rotate: '1turn',
+      easing: 'easeInOutSine',
+      direction: 'alternate',
+      duration: 400
+    });
+  }
+  function animation(target,colour) {
+    anime({
+        targets: target,
+        translateY: 300,
+        scale: 3,
+        backgroundColor: colour,
+        easing: 'spring(1, 80, 10, 0)',
+        direction: 'alternate'
+    });
+  }
+
+  $(document).mousemove(function(e) {
+      // what happens when the mouse moves around
+      hotbox(e, lm, '#F0341A')
+      hotbox(e, lcm,'#F07921')
+      hotbox(e, cm,'#E650F0')
+      hotbox(e, rcm,'#E8F051')
+      hotbox(e, rm,'#86BD5B')
+  });
+  </script>
+</body>
+</html>
